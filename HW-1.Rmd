@@ -1,6 +1,6 @@
 ---
 title: "MATH 216 Homework 1"
-author: "WRITE YOUR NAME HERE"
+author: "Kyra Gray"
 output:
   html_document:
     toc: true
@@ -34,10 +34,10 @@ states <- read_csv("data/states.csv")
 
 Please indicate
 
-* Who you collaborated with:
-* Roughly how much time you spent on this HW so far:
-* The URL of the RPubs published URL [here](https://www.nhl.com/).
-* What gave you the most trouble:
+* Who you collaborated with: Nina, Amanda, Katherine, Brenda 
+* Roughly how much time you spent on this HW so far: 4 hours 
+* The URL of the RPubs published URL [here](http://rpubs.com/kyragray/213420).
+* What gave you the most trouble: overriding my data frames and not knowing how to reverse my mistake 
 * Any comments you have:
 
 
