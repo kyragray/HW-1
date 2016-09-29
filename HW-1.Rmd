@@ -59,9 +59,12 @@ minutes tend to occur.
 
 ```
 
-
-
-
+delayed_per_day <- flights %>%
+  mutate(over_30 = ifelse(dep_delay>30, TRUE, FALSE)) %>%
+  group_by(date) %>% 
+  summarise(p_delayed = mean(over_30, na.rm=TRUE))
+  
+ggplot(data=delayed_per_day, aes(x=date, y=p_delayed)) + geom_point()
 
 ## Question 2:
 
@@ -71,10 +74,18 @@ they tend to have more room.  Which airlines should these people favor?
 ```{r, echo=FALSE, fig.width=12, fig.height=6}
 
 ```
+##Airplanes built before 2000 will be considered "old" http://www.independenttraveler.com/travel-tips/travelers-ed/the-airplane-seat-narrow-cramped-and-about-to-get-worse 
+planes <- planes %>%
+  mutate(old_plane = ifelse(year<2000, TRUE, FALSE))
 
+flights_temp <- left_join(flights, planes, by="plane")
+flights_temp <- flights_temp %>% 
+  select(plane, old_plane, carrier) %>% 
+  group_by(carrier) %>% 
+  summarise(p_old = mean(old_plane, na.rm=TRUE)) %>% 
+  arrange(p_old)
 
-
-
+ggplot(data=flights_temp, aes(x=carrier, y=p_old)) + geom_bar(stat="identity")
 
 ## Question 3:
 
@@ -88,9 +99,29 @@ path, but since it flew 299 times in 2013, it would be counted as 299 flights.
 
 ```
 
+##Southwest's airline carrier code is WN. 
 
+southwest_flights <- flights %>% 
+  filter(carrier == "WN") %>%
+  select(date, flight, dest)
+  
+southwest_flights <- left_join(southwest_flights, airports, by = c("dest"="iata"))
 
+sw_flightcount <- southwest_flights %>%
+  group_by(state) %>% 
+  tally() %>% 
+  rename(num_swflights_per_state = n)
 
+##N/A entries for state all are the ECP flights which I think is an airport in Florida 
+  
+ggplot(data=sw_flightcount, aes(x=state, y=num_swflights_per_state)) + geom_bar(stat="identity")
+
+##the plot above displays how many southwest flights go to each state 
+
+sw_flightpath_count <- southwest_flights %>% 
+  group_by(flight, state) %>% 
+  tally() 
+  
 
 ## Question 4:
 
