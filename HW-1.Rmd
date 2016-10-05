@@ -12,6 +12,7 @@ output:
 ```{r, echo=FALSE, message=FALSE}
 library(ggplot2)
 library(dplyr)
+library(lubridate)
 # For read_csv() command, which is an improved version of base R's read.csv()
 library(readr) 
 
@@ -35,10 +36,11 @@ states <- read_csv("data/states.csv")
 Please indicate
 
 * Who you collaborated with: Nina, Amanda, Katherine, Brenda 
-* Roughly how much time you spent on this HW so far: 4 hours 
+* Roughly how much time you spent on this HW so far: 9 hours 
 * The URL of the RPubs published URL [here](http://rpubs.com/kyragray/213420).
 * What gave you the most trouble: overriding my data frames and not knowing how to reverse my mistake 
-* Any comments you have:
+* Any comments you have: Need to learn how to search for all the N/A values and either rename so they are assigned to a state/region or remove regarding Question #4. This will also probably help address warnings regarding removing rows with missing values in other questions. 
+
 
 
 
@@ -55,37 +57,44 @@ Using this plot, indicate describe the
 [seasonality](https://en.wikipedia.org/wiki/Seasonality) of when delays over 30
 minutes tend to occur.
 
+It would appear that the seasonality of when flight delays (over 30 minutes) tend to occur is such that there tend to be greater proportion of flights delayed on any given day primarily in the month of July, perhaps due to summer thunderstorms in Texas. Secondarily, in the month of January perhaps due to winter weather delays. However, the process of determining the seasonality of delays out of Houston Airport would be strengthed by data across multiple years, rather than just data on flights from 2011. 
+
 ```{r, echo=FALSE, message=FALSE, fig.width=12, fig.height=6}
 delayed_per_day <- flights %>%
   mutate(over_30 = ifelse(dep_delay>30, TRUE, FALSE)) %>%
   group_by(date) %>% 
   summarise(p_delayed = mean(over_30, na.rm=TRUE))
   
-ggplot(data=delayed_per_day, aes(x=date, y=p_delayed)) + geom_point()
+ggplot(data=delayed_per_day, aes(x=date, y=p_delayed)) + 
+  geom_point() +
+  labs(x="Date", y="Proportion of Flight Delay on Given Day", title="Seasonality of Flight Delays out of IAH")
 ```
-
-
 
 ## Question 2:
 
 Some people prefer flying on older planes.  Even though they aren't as nice,
 they tend to have more room.  Which airlines should these people favor?
 
+People who tend to prefer older planes for the sake of more room in their seat should fly American Eagle (MQ) because it has the oldest median age for their airplanes and a much smaller range of years compared to American Airlines. American Airlines has the second oldest median airplane age but has a much wider ranger so it is a possibility to fly in a much younger plane when flying AA, whereas with American Eagle you will be guaranteed to be flying in a plane built in the early 1980s or earlier. 
+
 ```{r, echo=FALSE, fig.width=12, fig.height=6}
 planes <- planes %>%
   mutate(old_plane = ifelse(year<2000, TRUE, FALSE))
 
-flights_temp <- left_join(flights, planes, by="plane")
-flights_temp <- flights_temp %>% 
-  select(plane, old_plane, carrier) %>% 
-  group_by(carrier) %>% 
-  summarise(p_old = mean(old_plane, na.rm=TRUE)) %>% 
-  arrange(p_old)
+oldplane_carrier <- left_join(flights, planes, by="plane") %>% 
+  select(year, carrier) %>% 
+  arrange(year) %>% 
+  group_by(carrier, year) %>% 
+  tally()
 
-ggplot(data=flights_temp, aes(x=carrier, y=p_old)) + geom_bar(stat="identity")
+ggplot(data=oldplane_carrier, aes(x=carrier, y=year)) + 
+  geom_boxplot() +
+  labs(x="Carrier", y="Year Plane Built", title="Airline Carriers and the Age Range of Their Planes")
+  
+
 ```
 
-Airplanes built before 2000 will be considered "old" http://www.independenttraveler.com/travel-tips/travelers-ed/the-airplane-seat-narrow-cramped-and-about-to-get-worse 
+
 
 
 ## Question 3:
@@ -96,33 +105,42 @@ Airplanes built before 2000 will be considered "old" http://www.independenttrave
 For example, Southwest Airlines Flight 60 to Dallas consists of a single flight
 path, but since it flew 299 times in 2013, it would be counted as 299 flights.
 
+Notes: 
+  Southwest's airline carrier code is WN. 
+  N/A entries for state all are the ECP flights which I think is an airport in     Florida 
+  
+The two plot below displays how many southwest flight go to each state and how many flight paths Southwest has to each state. Out of IAH, Southwest has the most flight paths to (in descending order) Texas, Florida, Louisiana, California, Oklahoma. Additionally, out of IAH, Southwest has the most flights to (in descending order) Texas, Florida, Louisiana, California, Oklahoma. It is not surprising that the order of the states for most flight paths and most flights in general match. 
+
 ```{r, echo=FALSE, message=FALSE, fig.width=12, fig.height=6}
 southwest_flights <- flights %>% 
-  filter(carrier == "WN") %>%
-  select(date, flight, dest)
+  filter(carrier == "WN") 
   
 southwest_flights <- left_join(southwest_flights, airports, by = c("dest"="iata"))
 
 sw_flightcount <- southwest_flights %>%
+  mutate(state = ifelse(dest=="ECP", "FL", state)) %>% 
+  select(date, flight, dest, state) %>% 
   group_by(state) %>% 
   tally() %>% 
   rename(num_swflights_per_state = n)
 
-ggplot(data=sw_flightcount, aes(x=state, y=num_swflights_per_state)) + geom_bar(stat="identity")
-
-```
-
-Southwest's airline carrier code is WN. 
-
-N/A entries for state all are the ECP flights which I think is an airport in Florida 
+ggplot(data=sw_flightcount, aes(x=state, y=num_swflights_per_state)) +
+  geom_bar(stat="identity") +
+  labs(x="State", y="Number of Southwest Flights", title="Southwest Flights")
   
 
-## the plot above displays how many southwest flights go to each state 
+southwest_flightpaths <- southwest_flights %>% 
+  select(flight, state) %>% 
+  group_by(state, flight) %>% 
+  tally() %>% 
+  select(state, flight) %>% 
+  group_by(state) %>% 
+  tally() %>% 
+  rename(num_swflightpaths_per_state=n) 
 
-```{r, echo=FALSE, message=FALSE, fig.width=12, fig.height=6}
-sw_flightpath_count <- southwest_flights %>% 
-  group_by(flight, state) %>% 
-  tally() 
+ggplot(data=southwest_flightpaths, aes(x=state, y=num_swflightpaths_per_state)) +   geom_bar(stat="identity") +
+  labs(x="State", y="Number of Southwest Flight Paths", title="Southwest Flight Paths")
+  
 ```
 
 ## Question 4:
@@ -131,6 +149,33 @@ I want to know proportionately what regions (NE, south, west, midwest) each
 carrier flies to/from Houston in the month of July.  Consider the `month()`
 function from the `lubridate` package.
 
-```{r, echo=FALSE, message=FALSE, fig.width=12, fig.height=6}
+As we can see below not all carriers fly to each region of the United States. In fact some carriers only fly to one region out of IAH. For example, American Airlines only flies to the south. The only two airline that fly to all four regions of the country are Continental and Skywest. However, it is important to keep in mind that in 2011, Continental and United were undergoing their merger, thus potentially explaining why United has no flights to the Northeast, despite flying to all three other regions. 
 
+```{r, echo=FALSE, message=FALSE, fig.width=12, fig.height=6}
+flights_region <- flights 
+
+flights_region <- left_join(flights_region, airports, by=c("dest"="iata")) 
+
+flights_region <- flights_region %>%   
+    select(date, carrier, dest, state)
+
+flights_region <- left_join(flights_region, states, by="state")  
+
+flights_region <- flights_region %>%   
+    select(date, carrier, state, dest, region)  
+    
+flights_region <- flights_region %>% 
+    mutate(month=month(date)) %>% 
+    filter(month==7) 
+  
+flights_region <- flights_region %>%   
+    select(carrier, region) %>% 
+    group_by(carrier, region) %>% 
+    tally() %>% 
+    rename(num_flights_per_region=n)
+    
+ggplot(data=flights_region, aes(x=carrier, y=num_flights_per_region, fill=region)) + 
+  geom_bar(stat="identity", position="fill") +
+  labs(x="Carrier", y="Proportion of Flights per Region", title="")
 ```
+
