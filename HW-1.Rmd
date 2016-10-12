@@ -13,6 +13,8 @@ output:
 library(ggplot2)
 library(dplyr)
 library(lubridate)
+library(forcats)
+library(tidyr)
 # For read_csv() command, which is an improved version of base R's read.csv()
 library(readr) 
 
@@ -39,7 +41,7 @@ Please indicate
 * Roughly how much time you spent on this HW so far: 9 hours 
 * The URL of the RPubs published URL [here](http://rpubs.com/kyragray/213420).
 * What gave you the most trouble: overriding my data frames and not knowing how to reverse my mistake 
-* Any comments you have: Need to learn how to search for all the N/A values and either rename so they are assigned to a state/region or remove regarding Question #4. This will also probably help address warnings regarding removing rows with missing values in other questions. 
+* Any comments you have: Need to learn how to search for all the N/A values and either rename so they are assigned to a state/region or remove regarding Question #4. This will also probably help address warnings regarding removing rows with missing values in other questions. I have since figured this out and using google discoverd the drop_na(year) function. Additionally, I have attempted to determined how to used fct_reorder to reorder the boxplots in Question #2 but don't know how to reorder the plot by the median plane age for each carrier. 
 
 
 
@@ -67,7 +69,9 @@ delayed_per_day <- flights %>%
   
 ggplot(data=delayed_per_day, aes(x=date, y=p_delayed)) + 
   geom_point() +
-  labs(x="Date", y="Proportion of Flight Delay on Given Day", title="Seasonality of Flight Delays out of IAH")
+  geom_smooth(se=FALSE) +
+  labs(x="Date", y="Proportion of Flight Delay > 30 mins", title="Seasonality of Flight Delays out of IAH") +
+  coord_cartesian(ylim=c(0, 0.25))
 ```
 
 ## Question 2:
@@ -75,26 +79,24 @@ ggplot(data=delayed_per_day, aes(x=date, y=p_delayed)) +
 Some people prefer flying on older planes.  Even though they aren't as nice,
 they tend to have more room.  Which airlines should these people favor?
 
-People who tend to prefer older planes for the sake of more room in their seat should fly American Eagle (MQ) because it has the oldest median age for their airplanes and a much smaller range of years compared to American Airlines. American Airlines has the second oldest median airplane age but has a much wider ranger so it is a possibility to fly in a much younger plane when flying AA, whereas with American Eagle you will be guaranteed to be flying in a plane built in the early 1980s or earlier. 
+People who tend to prefer older planes for the sake of more room in their seat should fly American Eagle (MQ) because it has the oldest median age for their airplanes and a much smaller range of years compared to American Airlines. American Airlines has the second oldest median airplane age but has a much wider ranger so it is a possibility to fly in a much younger plane when flying AA, whereas with American Eagle you will be guaranteed to be flying in a plane built in the early 1980s or earlier. *It should be noted that I removed 11,402 flights from the data frame because the plane used in the flight did not have a year built value. 
 
 ```{r, echo=FALSE, fig.width=12, fig.height=6}
 planes <- planes %>%
   mutate(old_plane = ifelse(year<2000, TRUE, FALSE))
 
 oldplane_carrier <- left_join(flights, planes, by="plane") %>% 
-  select(year, carrier) %>% 
+  select(year, carrier) %>%
+  drop_na(year) %>% 
   arrange(year) %>% 
   group_by(carrier, year) %>% 
   tally()
 
-ggplot(data=oldplane_carrier, aes(x=carrier, y=year)) + 
+ggplot(data=oldplane_carrier, aes(x=carrier, y=year, fct_reorder(oldplane_carrier))) + 
   geom_boxplot() +
   labs(x="Carrier", y="Year Plane Built", title="Airline Carriers and the Age Range of Their Planes")
-  
 
 ```
-
-
 
 
 ## Question 3:
@@ -109,7 +111,7 @@ Notes:
   Southwest's airline carrier code is WN. 
   N/A entries for state all are the ECP flights which I think is an airport in     Florida 
   
-The two plot below displays how many southwest flight go to each state and how many flight paths Southwest has to each state. Out of IAH, Southwest has the most flight paths to (in descending order) Texas, Florida, Louisiana, California, Oklahoma. Additionally, out of IAH, Southwest has the most flights to (in descending order) Texas, Florida, Louisiana, California, Oklahoma. It is not surprising that the order of the states for most flight paths and most flights in general match. 
+The two plot below displays how many southwest flight go to each state and how many flight paths Southwest has to each state. Out of IAH, Southwest has the most flight paths to (in descending order) Texas, Florida, Louisiana, California, Oklahoma. Additionally, out of IAH, Southwest has the most flights to (in descending order) Texas, Florida, Louisiana, California, Oklahoma. It is not surprising that the order of the states for most flight paths and most flights in general match. *It should be noted I removed 729 flights from the data frame because their values for their destination/state were N/A. 
 
 ```{r, echo=FALSE, message=FALSE, fig.width=12, fig.height=6}
 southwest_flights <- flights %>% 
@@ -118,6 +120,7 @@ southwest_flights <- flights %>%
 southwest_flights <- left_join(southwest_flights, airports, by = c("dest"="iata"))
 
 sw_flightcount <- southwest_flights %>%
+  drop_na(state) %>% 
   mutate(state = ifelse(dest=="ECP", "FL", state)) %>% 
   select(date, flight, dest, state) %>% 
   group_by(state) %>% 
@@ -130,6 +133,7 @@ ggplot(data=sw_flightcount, aes(x=state, y=num_swflights_per_state)) +
   
 
 southwest_flightpaths <- southwest_flights %>% 
+  drop_na(state) %>% 
   select(flight, state) %>% 
   group_by(state, flight) %>% 
   tally() %>% 
@@ -151,6 +155,7 @@ function from the `lubridate` package.
 
 As we can see below not all carriers fly to each region of the United States. In fact some carriers only fly to one region out of IAH. For example, American Airlines only flies to the south. The only two airline that fly to all four regions of the country are Continental and Skywest. However, it is important to keep in mind that in 2011, Continental and United were undergoing their merger, thus potentially explaining why United has no flights to the Northeast, despite flying to all three other regions. 
 
+Below is two sets of code that accomplish the same plot, the first is my original attemp and the second is the more concise version recommended by Professor Kim. 
 ```{r, echo=FALSE, message=FALSE, fig.width=12, fig.height=6}
 flights_region <- flights 
 
@@ -174,6 +179,24 @@ flights_region <- flights_region %>%
     tally() %>% 
     rename(num_flights_per_region=n)
     
+ggplot(data=flights_region, aes(x=carrier, y=num_flights_per_region, fill=region)) + 
+  geom_bar(stat="identity", position="fill") +
+  labs(x="Carrier", y="Proportion of Flights per Region", title="")
+```
+
+```{r, echo=FALSE, message=FALSE, fig.width=12, fig.height=6}
+flights_region <- flights %>% 
+  left_join(airports, by=c("dest"="iata")) %>%   
+  select(date, carrier, dest, state) %>% 
+  left_join(states, by="state")  %>%   
+  select(date, carrier, state, dest, region) %>% 
+  mutate(month=month(date)) %>% 
+  filter(month==7) %>%   
+  select(carrier, region) %>% 
+  group_by(carrier, region) %>% 
+  tally() %>% 
+  rename(num_flights_per_region=n)
+
 ggplot(data=flights_region, aes(x=carrier, y=num_flights_per_region, fill=region)) + 
   geom_bar(stat="identity", position="fill") +
   labs(x="Carrier", y="Proportion of Flights per Region", title="")
